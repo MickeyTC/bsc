@@ -482,4 +482,5 @@ const address = '0x844FA82f1E54824655470970F7004Dd90546bB28'
 
 const contract = new web3.eth.Contract(abi, address)
 
+export { abi, address }
 export default contract
