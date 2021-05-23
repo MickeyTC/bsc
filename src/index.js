@@ -3,11 +3,13 @@ import PancakeFactory from '../contracts/PancakeFactory.js'
 import PancakePair from '../contracts/PancakePair.js'
 
 const tokens = {
-  '0x844fa82f1e54824655470970f7004dd90546bb28': { code: 'DOP' },
-  '0xe9e7cea3dedca5984780bafc599bd69add087d56': { code: 'BUSD' },
-  '0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c': { code: 'WBNB' },
-  '0xff54da7caf3bc3d34664891fc8f3c9b6dea6c7a5': { code: 'DOLLY' },
+  '0x844fa82f1e54824655470970f7004dd90546bb28': { symbol: 'DOP' },
+  '0xe9e7cea3dedca5984780bafc599bd69add087d56': { symbol: 'BUSD' },
+  '0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c': { symbol: 'WBNB' },
+  '0xff54da7caf3bc3d34664891fc8f3c9b6dea6c7a5': { symbol: 'DOLLY' },
 }
+
+const pairs = {}
 
 const getPancakePair = async (tokenA, tokenB) => {
   if (!tokens[tokenA] || !tokens[tokenB]) {
@@ -18,44 +20,38 @@ const getPancakePair = async (tokenA, tokenB) => {
     .getPair(tokenA, tokenB)
     .call()
   const [token0, token1] = tokenA < tokenB ? [tokenA, tokenB] : [tokenB, tokenA]
-  const pair = { address: pairAddress, token0, token1 }
-  return pair
+
+  pairs[pairAddress] = { token0, token1 }
+
+  return { address: pairAddress, token0, token1 }
 }
 
 const main = async () => {
   console.log(`Current block: ${await web3.eth.getBlockNumber()}`)
 
-  const pairs = []
-
   // DOP-WBNB
-  pairs.push(
-    await getPancakePair(
-      '0x844fa82f1e54824655470970f7004dd90546bb28',
-      '0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c'
-    )
+  await getPancakePair(
+    '0x844fa82f1e54824655470970f7004dd90546bb28',
+    '0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c'
   )
 
   // DOP-BUSD
-  pairs.push(
-    await getPancakePair(
-      '0x844fa82f1e54824655470970f7004dd90546bb28',
-      '0xe9e7cea3dedca5984780bafc599bd69add087d56'
-    )
+  await getPancakePair(
+    '0x844fa82f1e54824655470970f7004dd90546bb28',
+    '0xe9e7cea3dedca5984780bafc599bd69add087d56'
   )
 
   // DOP-DOLLY
-  pairs.push(
-    await getPancakePair(
-      '0x844fa82f1e54824655470970f7004dd90546bb28',
-      '0xff54da7caf3bc3d34664891fc8f3c9b6dea6c7a5'
-    )
+  await getPancakePair(
+    '0x844fa82f1e54824655470970f7004dd90546bb28',
+    '0xff54da7caf3bc3d34664891fc8f3c9b6dea6c7a5'
   )
 
   const toBN = web3.utils.toBN
   const toETH = web3.utils.fromWei
   const subscription = web3.eth
     .subscribe('logs', {
-      address: pairs.map(pair => pair.address),
+      address: Object.keys(pairs),
       topics: [
         web3.utils.sha3(
           'Swap(address,uint256,uint256,uint256,uint256,address)'
@@ -104,9 +100,7 @@ const main = async () => {
         ? [toETH(amount0In), toETH(amount1Out)]
         : [toETH(amount0Out), toETH(amount1In)]
 
-      const { token0, token1 } = pairs.find(
-        pair => pair.address === log.address
-      )
+      const { token0, token1 } = pairs[log.address]
 
       const timestamp = (await web3.eth.getBlock(log.blockNumber)).timestamp
 
@@ -126,8 +120,8 @@ const main = async () => {
         block: log.blockNumber,
         txHash: log.transactionHash,
         result: isToken0In
-          ? `${amount0} ${tokens[token0].code} -> ${amount1} ${tokens[token1].code}`
-          : `${amount1} ${tokens[token1].code} -> ${amount0} ${tokens[token0].code}`,
+          ? `${amount0} ${tokens[token0].symbol} -> ${amount1} ${tokens[token1].symbol}`
+          : `${amount1} ${tokens[token1].symbol} -> ${amount0} ${tokens[token0].symbol}`,
       }
       console.log(result)
     })
