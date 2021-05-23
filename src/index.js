@@ -62,7 +62,7 @@ const main = async () => {
         ),
       ],
     })
-    .on('data', log => {
+    .on('data', async log => {
       const data = web3.eth.abi.decodeLog(
         [
           {
@@ -108,7 +108,21 @@ const main = async () => {
         pair => pair.address === log.address
       )
 
+      const timestamp = (await web3.eth.getBlock(log.blockNumber)).timestamp
+
+      const pancakePairContract = PancakePair(log.address)
+
+      const price0Cumulative = await pancakePairContract.methods
+        .price0CumulativeLast()
+        .call()
+      const price1Cumulative = await pancakePairContract.methods
+        .price1CumulativeLast()
+        .call()
+
       const result = {
+        timestamp,
+        price0Cumulative,
+        price1Cumulative,
         block: log.blockNumber,
         txHash: log.transactionHash,
         result: isToken0In
@@ -136,3 +150,8 @@ const main = async () => {
 // }
 
 main()
+
+// const aa = web3.eth.abi.encodeFunctionSignature(
+//   'swapExactETHForTokens(uint256,address[],address,uint256)'
+// )
+// console.log(aa)
