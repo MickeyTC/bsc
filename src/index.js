@@ -1,6 +1,7 @@
 import web3 from '../services/web3.js'
 import PancakeFactory from '../contracts/PancakeFactory.js'
 import PancakePair from '../contracts/PancakePair.js'
+import BandOracle from '../contracts/StdReference.js'
 
 const tokens = {
   '0x844fa82f1e54824655470970f7004dd90546bb28': { symbol: 'DOP' },
@@ -121,12 +122,22 @@ const main = async () => {
       const { token0, token1 } = pairs[log.address]
 
       const pancakePairContract = PancakePair(log.address)
-
       const {
         _reserve0: reserve0,
         _reserve1: reserve1,
         _blockTimestampLast: timestamp,
       } = await pancakePairContract.methods.getReserves().call()
+
+      // const { rate: rateBusdUsd } = await BandOracle.methods
+      //   .getReferenceData('BUSD', 'USD')
+      //   .call()
+      // const { rate: rateBnbUsd } = await BandOracle.methods
+      //   .getReferenceData('BNB', 'USD')
+      //   .call()
+      const [{ rate: rateBusdUsd }, { rate: rateBnbUsd }] =
+        await BandOracle.methods
+          .getReferenceDataBulk(['BUSD', 'BNB'], ['USD', 'USD'])
+          .call()
 
       const result = {
         timestamp,
@@ -137,6 +148,8 @@ const main = async () => {
         token1: tokens[token1].symbol,
         rate0: Number(reserve1) / Number(reserve0),
         rate1: Number(reserve0) / Number(reserve1),
+        rateBusdUsd: toETH(rateBusdUsd),
+        rateBnbUsd: toETH(rateBnbUsd),
         block: log.blockNumber,
         txHash: log.transactionHash,
         result: isToken0In
