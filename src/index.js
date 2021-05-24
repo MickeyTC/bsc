@@ -9,6 +9,11 @@ const tokens = {
   '0xff54da7caf3bc3d34664891fc8f3c9b6dea6c7a5': { symbol: 'DOLLY' },
 }
 
+// pairs: {
+//   address,
+//   token0,
+//   token1,
+// }
 const pairs = {}
 
 const getPancakePair = async (tokenA, tokenB) => {
@@ -16,42 +21,55 @@ const getPancakePair = async (tokenA, tokenB) => {
     throw new Error('Invalid token address')
   }
 
-  const pairAddress = await PancakeFactory.methods
-    .getPair(tokenA, tokenB)
-    .call()
   const [token0, token1] = tokenA < tokenB ? [tokenA, tokenB] : [tokenB, tokenA]
 
-  pairs[pairAddress] = { token0, token1 }
+  const pair = Object.values(pairs).find(
+    p => p.token0 === token0 && p.token1 === token1
+  )
+  if (pair) return pair
 
-  return { address: pairAddress, token0, token1 }
+  const pairAddress = await PancakeFactory.methods
+    .getPair(token0, token1)
+    .call()
+
+  pairs[pairAddress] = { address: pairAddress, token0, token1 }
+  return pairs[pairAddress]
 }
 
 const main = async () => {
   console.log(`Current block: ${await web3.eth.getBlockNumber()}`)
 
+  const watchList = []
+
   // DOP-WBNB
-  await getPancakePair(
-    '0x844fa82f1e54824655470970f7004dd90546bb28',
-    '0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c'
+  watchList.push(
+    await getPancakePair(
+      '0x844fa82f1e54824655470970f7004dd90546bb28',
+      '0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c'
+    )
   )
 
   // DOP-BUSD
-  await getPancakePair(
-    '0x844fa82f1e54824655470970f7004dd90546bb28',
-    '0xe9e7cea3dedca5984780bafc599bd69add087d56'
+  watchList.push(
+    await getPancakePair(
+      '0x844fa82f1e54824655470970f7004dd90546bb28',
+      '0xe9e7cea3dedca5984780bafc599bd69add087d56'
+    )
   )
 
   // DOP-DOLLY
-  await getPancakePair(
-    '0x844fa82f1e54824655470970f7004dd90546bb28',
-    '0xff54da7caf3bc3d34664891fc8f3c9b6dea6c7a5'
+  watchList.push(
+    await getPancakePair(
+      '0x844fa82f1e54824655470970f7004dd90546bb28',
+      '0xff54da7caf3bc3d34664891fc8f3c9b6dea6c7a5'
+    )
   )
 
   const toBN = web3.utils.toBN
   const toETH = web3.utils.fromWei
   const subscription = web3.eth
     .subscribe('logs', {
-      address: Object.keys(pairs),
+      address: watchList.map(w => w.address),
       topics: [
         web3.utils.sha3(
           'Swap(address,uint256,uint256,uint256,uint256,address)'
@@ -102,21 +120,23 @@ const main = async () => {
 
       const { token0, token1 } = pairs[log.address]
 
-      const timestamp = (await web3.eth.getBlock(log.blockNumber)).timestamp
-
       const pancakePairContract = PancakePair(log.address)
 
-      const price0Cumulative = await pancakePairContract.methods
-        .price0CumulativeLast()
-        .call()
-      const price1Cumulative = await pancakePairContract.methods
-        .price1CumulativeLast()
-        .call()
+      const {
+        _reserve0: reserve0,
+        _reserve1: reserve1,
+        _blockTimestampLast: timestamp,
+      } = await pancakePairContract.methods.getReserves().call()
 
       const result = {
         timestamp,
-        price0Cumulative,
-        price1Cumulative,
+        date: new Date(Number(timestamp) * 1000).toLocaleString('th'),
+        reserve0,
+        reserve1,
+        token0: tokens[token0].symbol,
+        token1: tokens[token1].symbol,
+        rate0: Number(reserve1) / Number(reserve0),
+        rate1: Number(reserve0) / Number(reserve1),
         block: log.blockNumber,
         txHash: log.transactionHash,
         result: isToken0In
