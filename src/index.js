@@ -17,7 +17,7 @@ const tokens = {
 // }
 const pairs = {}
 
-const getPancakePair = async (tokenA, tokenB) => {
+const getPancakePairAddress = async (tokenA, tokenB) => {
   if (!tokens[tokenA] || !tokens[tokenB]) {
     throw new Error('Invalid token address')
   }
@@ -37,6 +37,23 @@ const getPancakePair = async (tokenA, tokenB) => {
   return pairs[pairAddress]
 }
 
+const getPancakePairRate = async pancakePairAddress => {
+  const pancakePairContract = PancakePair(pancakePairAddress)
+  const {
+    _reserve0: reserve0,
+    _reserve1: reserve1,
+    _blockTimestampLast: timestamp,
+  } = await pancakePairContract.methods.getReserves().call()
+
+  return {
+    reserve0,
+    reserve1,
+    timestamp,
+    rate0: Number(reserve1) / Number(reserve0),
+    rate1: Number(reserve0) / Number(reserve1),
+  }
+}
+
 const main = async () => {
   console.log(`Current block: ${await web3.eth.getBlockNumber()}`)
 
@@ -44,7 +61,7 @@ const main = async () => {
 
   // DOP-WBNB
   watchList.push(
-    await getPancakePair(
+    await getPancakePairAddress(
       '0x844fa82f1e54824655470970f7004dd90546bb28',
       '0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c'
     )
@@ -52,7 +69,7 @@ const main = async () => {
 
   // DOP-BUSD
   watchList.push(
-    await getPancakePair(
+    await getPancakePairAddress(
       '0x844fa82f1e54824655470970f7004dd90546bb28',
       '0xe9e7cea3dedca5984780bafc599bd69add087d56'
     )
@@ -60,7 +77,7 @@ const main = async () => {
 
   // DOP-DOLLY
   watchList.push(
-    await getPancakePair(
+    await getPancakePairAddress(
       '0x844fa82f1e54824655470970f7004dd90546bb28',
       '0xff54da7caf3bc3d34664891fc8f3c9b6dea6c7a5'
     )
@@ -121,12 +138,7 @@ const main = async () => {
 
       const { token0, token1 } = pairs[log.address]
 
-      const pancakePairContract = PancakePair(log.address)
-      const {
-        _reserve0: reserve0,
-        _reserve1: reserve1,
-        _blockTimestampLast: timestamp,
-      } = await pancakePairContract.methods.getReserves().call()
+      const { timestamp, rate0, rate1 } = await getPancakePairRate(log.address)
 
       // const { rate: rateBusdUsd } = await BandOracle.methods
       //   .getReferenceData('BUSD', 'USD')
@@ -142,12 +154,10 @@ const main = async () => {
       const result = {
         timestamp,
         date: new Date(Number(timestamp) * 1000).toLocaleString('th'),
-        reserve0,
-        reserve1,
         token0: tokens[token0].symbol,
         token1: tokens[token1].symbol,
-        rate0: Number(reserve1) / Number(reserve0),
-        rate1: Number(reserve0) / Number(reserve1),
+        rate0,
+        rate1,
         rateBusdUsd: toETH(rateBusdUsd),
         rateBnbUsd: toETH(rateBnbUsd),
         block: log.blockNumber,
