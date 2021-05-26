@@ -11,9 +11,11 @@ const tokens = {
 }
 
 // pairs: {
-//   address,
-//   token0,
-//   token1,
+//   [pairAddress] : {
+//     address,
+//     token0,
+//     token1,
+//   }
 // }
 const pairs = {}
 
