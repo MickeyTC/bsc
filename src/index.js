@@ -18,11 +18,17 @@ const tokens = {
 const pairs = {}
 
 const getPancakePairAddress = async (tokenA, tokenB) => {
+  if (tokenA.toLowerCase() === tokenB.toLowerCase()) {
+    throw new Error('Token cannot be the same')
+  }
   if (!tokens[tokenA] || !tokens[tokenB]) {
     throw new Error('Invalid token address')
   }
 
-  const [token0, token1] = tokenA < tokenB ? [tokenA, tokenB] : [tokenB, tokenA]
+  const [token0, token1] =
+    tokenA.toLowerCase() < tokenB.toLowerCase()
+      ? [tokenA, tokenB]
+      : [tokenB, tokenA]
 
   const pair = Object.values(pairs).find(
     p => p.token0 === token0 && p.token1 === token1
